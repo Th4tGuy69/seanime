@@ -99,3 +99,24 @@ jobs:
           TAGS: ${{ steps.meta.outputs.tags }}
           DIGEST: ${{ steps.build-and-push.outputs.digest }}
         run: echo "${TAGS}" | xargs -I {} cosign sign --yes {}@${DIGEST}
+      
+      - name: Delete untagged images
+        if: steps.check.outputs.exists != 'true'
+        continue-on-error: true
+        run: |
+          PACKAGE_NAME=$(echo "${{ github.repository }}" | cut -d'/' -f2)
+          
+          # Get all untagged versions and delete them
+          curl -s -H "Authorization: Bearer ${{ secrets.GITHUB_TOKEN }}" \
+            -H "Accept: application/vnd.github+json" \
+            "https://api.github.com/user/packages/container/$PACKAGE_NAME/versions" | \
+          jq -r '.[] | select(.metadata.container.tags | length == 0) | .id' | \
+          while read version_id; do
+            echo "Deleting untagged version: $version_id"
+            curl -X DELETE \
+              -H "Authorization: Bearer ${{ secrets.GITHUB_TOKEN }}" \
+              -H "Accept: application/vnd.github+json" \
+              "https://api.github.com/user/packages/container/$PACKAGE_NAME/versions/$version_id" || true
+          done
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
