@@ -23,14 +23,11 @@ jobs:
       - name: Get latest seanime release
         id: seanime
         run: |
-          LATEST_VERSION=$(curl -s https://api.github.com/repos/5rahim/seanime/releases/latest | jq -r '.tag_name')
+          RELEASE_DATA=$(curl -s https://api.github.com/repos/5rahim/seanime/releases/latest)
+          LATEST_VERSION=$(echo "$RELEASE_DATA" | jq -r '.tag_name')
+          
           echo "version=$LATEST_VERSION" >> $GITHUB_OUTPUT
           echo "Latest seanime version: $LATEST_VERSION"
-          
-          # Get all tags for this release
-          RELEASE_DATA=$(curl -s https://api.github.com/repos/5rahim/seanime/releases/latest)
-          echo "release_name=$(echo "$RELEASE_DATA" | jq -r '.name')" >> $GITHUB_OUTPUT
-          echo "release_body=$(echo "$RELEASE_DATA" | jq -r '.body')" >> $GITHUB_OUTPUT
       
       # Check if we already built this version using GitHub API
       - name: Check if image exists
@@ -81,7 +78,6 @@ jobs:
             type=raw,value=latest
           labels: |
             org.opencontainers.image.title=Seanime
-            org.opencontainers.image.description=${{ steps.seanime.outputs.release_name }}
             org.opencontainers.image.source=https://github.com/5rahim/seanime
             org.opencontainers.image.version=${{ steps.seanime.outputs.version }}
       
