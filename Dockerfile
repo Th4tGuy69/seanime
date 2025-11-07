@@ -1,13 +1,13 @@
 FROM alpine
 
-ARG APP_JSON_URL=https://github.com/5rahim/seanime/releases/latest/download/latest.json
+ARG APP_YML_URL=https://github.com/5rahim/seanime/releases/latest/download/latest.yml
 
 WORKDIR /tmp
 
-RUN apk add --no-cache curl jq tar && \
+RUN apk add --no-cache curl tar grep && \
     #
-    curl -L -o latest.json ${APP_JSON_URL} && \
-    VERSION=$(jq -r '.version' latest.json) && \
+    curl -L -o latest.yml ${APP_YML_URL} && \
+    VERSION=$(grep '^version:' latest.yml | cut -d':' -f2 | xargs) && \
     #
     curl -L -o seanime.tar.gz \
     "https://github.com/5rahim/seanime/releases/download/v${VERSION}/seanime-${VERSION}_Linux_x86_64.tar.gz" && \
@@ -15,7 +15,7 @@ RUN apk add --no-cache curl jq tar && \
     mv seanime /seanime && \
     #
     rm -rf /tmp/* && \
-    apk del curl jq tar && \
+    apk del curl tar grep && \
     #
     mkdir -p /root/.config && \
     ln -s /config /root/.config/Seanime
