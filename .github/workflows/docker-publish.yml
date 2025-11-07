@@ -26,7 +26,16 @@ jobs:
       - name: Get Seanime version
         id: seanime
         run: |
+          # Fetch the latest version from the upstream repository
           VERSION=$(curl -s https://api.github.com/repos/5rahim/seanime/releases/latest | jq -r .tag_name)
+          echo "version=$VERSION" >> $GITHUB_OUTPUT
+          echo "📦 Detected upstream version: $VERSION"
+          
+          # Debug: Verify the version was set
+          if [ -z "$VERSION" ] || [ "$VERSION" == "null" ]; then
+            echo "❌ ERROR: Failed to fetch version"
+            exit 1
+          fi
         
       - name: Check if version already published to GHCR
         id: check
@@ -36,21 +45,27 @@ jobs:
           OWNER="${{ github.repository_owner }}"
           PACKAGE="${{ github.event.repository.name }}"
           VERSION="${{ steps.seanime.outputs.version }}"
+          
+          echo "🔍 Checking if version $VERSION exists in GHCR..."
+          echo "Owner: $OWNER"
+          echo "Package: $PACKAGE"
 
           RESPONSE=$(curl -s -H "Authorization: Bearer $GH_TOKEN" \
             "https://api.github.com/users/$OWNER/packages/container/$PACKAGE/versions")
 
           if echo "$RESPONSE" | jq -e ".[] | select(.metadata.container.tags[]? == \"$VERSION\")" > /dev/null; then
             echo "exists=true" >> $GITHUB_OUTPUT
-            echo "✅ Image $VERSION already exists."
+            echo "✅ Image $VERSION already exists. Skipping build."
           else
             echo "exists=false" >> $GITHUB_OUTPUT
-            echo "🆕 New version $VERSION detected! Building..."
+            echo "🆕 New version $VERSION detected! Proceeding with build..."
           fi
 
       - name: Stop if no new version
         if: steps.check.outputs.exists == 'true'
-        run: exit 0
+        run: |
+          echo "No new version to build. Exiting successfully."
+          exit 0
 
       - name: Install cosign
         if: steps.check.outputs.exists == 'false'
@@ -79,10 +94,15 @@ jobs:
           tags: |
             type=raw,value=${{ steps.seanime.outputs.version }}
             type=raw,value=latest
-          labels: |
-            org.opencontainers.image.title=Seanime
-            org.opencontainers.image.source=https://github.com/5rahim/seanime
-            org.opencontainers.image.version=${{ steps.seanime.outputs.version }}
+
+      - name: Debug metadata output
+        if: steps.check.outputs.exists == 'false'
+        run: |
+          echo "🏷️  Tags that will be applied:"
+          echo "${{ steps.meta.outputs.tags }}"
+          echo ""
+          echo "📝 Labels that will be applied:"
+          echo "${{ steps.meta.outputs.labels }}"
 
       - name: Build and push Docker image
         if: steps.check.outputs.exists == 'false'
@@ -97,6 +117,23 @@ jobs:
           cache-to: type=gha,mode=max
           provenance: false
           sbom: false
+
+      - name: Verify tags were applied
+        if: steps.check.outputs.exists == 'false'
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          OWNER="${{ github.repository_owner }}"
+          PACKAGE="${{ github.event.repository.name }}"
+          
+          echo "🔍 Verifying tags in GHCR..."
+          sleep 5  # Give GHCR a moment to update
+          
+          RESPONSE=$(curl -s -H "Authorization: Bearer $GH_TOKEN" \
+            "https://api.github.com/users/$OWNER/packages/container/$PACKAGE/versions")
+          
+          echo "Latest version tags:"
+          echo "$RESPONSE" | jq -r '.[0].metadata.container.tags[]?'
 
       - name: Sign the published Docker image
         if: steps.check.outputs.exists == 'false'
