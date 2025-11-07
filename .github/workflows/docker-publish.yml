@@ -96,7 +96,7 @@ jobs:
           cache-from: type=gha
           cache-to: type=gha,mode=max
           provenance: false
-          attests: false
+          sbom: false
 
       - name: Sign the published Docker image
         if: steps.check.outputs.exists == 'false'
