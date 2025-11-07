@@ -83,7 +83,6 @@ jobs:
           cache-from: type=gha
           cache-to: type=gha,mode=max
           provenance: false    # prevent GHCR from creating .sig entries automatically
-          attests: false        # same here
 
       - name: Sign the published Docker image
         env:
