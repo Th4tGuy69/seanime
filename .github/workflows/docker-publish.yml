@@ -19,7 +19,16 @@ jobs:
       packages: write
       id-token: write
 
-    steps:        
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Get latest seanime release
+        id: seanime
+        run: |
+          RELEASE_DATA=$(curl -s https://api.github.com/repos/5rahim/seanime/releases/latest)
+          LATEST_VERSION=$(echo "$RELEASE_DATA" | jq -r '.tag_name')
+
       - name: Check if version already published to GHCR
         id: check
         env:
