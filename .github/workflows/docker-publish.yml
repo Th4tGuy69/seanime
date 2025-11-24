@@ -99,6 +99,8 @@ jobs:
           cache-to: type=gha,mode=max
           provenance: false
           sbom: false
+          build-args: |
+            SEANIME_VERSION=${{ steps.seanime.outputs.version }}
 
       - name: Verify tags were applied
         if: steps.check.outputs.exists == 'false'
